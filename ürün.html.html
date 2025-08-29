@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ürün Listesi & Sepet</title>
+  <style>
+    :root{
+      --bg1:#fff7f0; --bg2:#f0f7ff; --card:#ffffff; --accent:#ff6b6b; --accent-2:#4f46e5; --muted:#6b7280;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Helvetica,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2));margin:0;padding:28px;color:#0f172a}
+    .wrap{max-width:1150px;margin:0 auto;display:grid;grid-template-columns:1fr 380px;gap:22px}
+    .card{background:var(--card);padding:18px;border-radius:14px;box-shadow:0 10px 30px rgba(15,23,42,0.06)}
+    h1{margin:0 0 12px;font-size:22px;color:var(--accent-2)}
+
+    /* Ürün alanı */
+    .controls{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+    .controls input, .controls select{padding:10px 12px;border-radius:10px;border:1px solid #e6eef8;font-size:14px}
+    .controls button{padding:10px 14px;border-radius:10px;border:none;background:var(--accent-2);color:white;cursor:pointer}
+
+    .products{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .product{background:linear-gradient(180deg,rgba(255,255,255,0.9),#fff);border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(79,70,229,0.06);display:flex;flex-direction:column}
+    .product .imgwrap{height:160px;background:#f3f4f6;display:flex;align-items:center;justify-content:center}
+    .product img{width:100%;height:100%;object-fit:cover}
+    .product .body{padding:12px;display:flex;flex-direction:column;gap:8px}
+    .title{font-weight:700;color:#0f172a}
+    .price{font-weight:800;color:var(--accent)}
+    .muted{font-size:13px;color:var(--muted)}
+    .actions{margin-top:auto;display:flex;gap:8px;align-items:center}
+    .btn{cursor:pointer;border:none;padding:8px 10px;border-radius:10px}
+    .btn.add{background:linear-gradient(90deg,var(--accent),#ff8a8a);color:#fff}
+    .btn.edit{background:#fff7e6;border:1px solid #ffe9c9;color:#b66a00}
+    .btn.delete{background:#fff0f0;border:1px solid #ffd6d6;color:#a60000}
+
+    /* Sepet */
+    .cart h2{margin:0 0 8px;color:var(--accent-2)}
+    .cart-list{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:6px}
+    .cart-item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:linear-gradient(90deg,#ffffff,#fbfbff)}
+    .cart-item img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+    .cart-meta{display:flex;flex-direction:column}
+    .qty{display:flex;gap:6px;align-items:center}
+    .qty button{width:30px;height:30px;padding:0;border-radius:8px;border:1px solid #e6eef8;background:white}
+    .totals{border-top:1px dashed #eef2ff;padding-top:10px;display:flex;flex-direction:column;gap:8px}
+
+    .empty{color:var(--muted);text-align:center;padding:24px}
+
+    @media (max-width:980px){.wrap{grid-template-columns:1fr}.products{grid-template-columns:1fr}} 
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="card">
+      <h1>Ürünler</h1>
+
+      <form id="addProductForm" class="controls" onsubmit="return false;">
+        <input id="pTitle" type="text" placeholder="Ürün adı (ör: AMAZING Genel Temizlik)" required />
+        <input id="pPrice" type="number" placeholder="Fiyat (₺)" min="0" step="0.01" required />
+        <input id="pImg" type="text" placeholder="Görsel URL (opsiyonel)" />
+        <button id="addBtn" class="">Yeni Ürün Ekle</button>
+      </form>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="search" type="text" placeholder="Ara..." />
+          <select id="sort">
+            <option value="default">Sırala</option>
+            <option value="price-asc">Fiyat ↑</option>
+            <option value="price-desc">Fiyat ↓</option>
+            <option value="name-asc">İsim A→Z</option>
+            <option value="name-desc">İsim Z→A</option>
+          </select>
+        </div>
+        <div class="muted">Renkli ve görselli ürün kartları</div>
+      </div>
+
+      <div id="products" class="products"></div>
+    </main>
+
+    <aside class="card cart">
+      <h2>Sepet</h2>
+      <div id="cartList" class="cart-list"></div>
+      <div class="totals">
+        <div class="muted" id="itemsCount">0 ürün</div>
+        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px">
+          <div>Toplam:</div>
+          <div id="totalPrice">₺0.00</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button id="clearCart" class="btn">Sepeti Boşalt</button>
+          <button id="checkout" class="btn add">Satışı Tamamla</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // Görsel kaynağı: picsum ile temsili resimler (istediğin URL'leri değiştirebilirsin)
+    const sampleProducts = [
+      { id: genId(), title: 'Araç İçi Şemsiyeli Güneşlik', price: 250.00, img: 'https://picsum.photos/seed/sunshade/800/600' },
+      { id: genId(), title: 'AMAZING Genel Temizlik', price: 75.00, img: 'https://picsum.photos/seed/cleaning/800/600' },
+      { id: genId(), title: 'AMAZING Cam Sil', price: 60.00, img: 'https://picsum.photos/seed/window/800/600' },
+      { id: genId(), title: 'Okul Sulukları', price: 90.00, img: 'https://picsum.photos/seed/waterbottle/800/600' },
+      { id: genId(), title: 'Fiber Temizlik Bezi', price: 35.00, img: 'https://picsum.photos/seed/cloth/800/600' },
+      { id: genId(), title: 'Dokunmatik Lamba', price: 180.00, img: 'https://picsum.photos/seed/lamp/800/600' },
+      { id: genId(), title: 'Kantoron Kremi', price: 55.00, img: 'https://picsum.photos/seed/cream/800/600' },
+      { id: genId(), title: 'Silikonlu Kaşık Takımı', price: 120.00, img: 'https://picsum.photos/seed/spoon/800/600' },
+      { id: genId(), title: 'Kir Pas Çözücü', price: 85.00, img: 'https://picsum.photos/seed/remover/800/600' }
+    ];
+
+    const KEY_PRODUCTS = 'myshop_products_v2';
+    const KEY_CART = 'myshop_cart_v2';
+
+    const productsEl = document.getElementById('products');
+    const cartListEl = document.getElementById('cartList');
+    const totalPriceEl = document.getElementById('totalPrice');
+    const itemsCountEl = document.getElementById('itemsCount');
+
+    const addForm = document.getElementById('addProductForm');
+    const pTitle = document.getElementById('pTitle');
+    const pPrice = document.getElementById('pPrice');
+    const pImg = document.getElementById('pImg');
+    const searchEl = document.getElementById('search');
+    const sortEl = document.getElementById('sort');
+
+    document.getElementById('clearCart').addEventListener('click', () => { if(confirm('Sepeti boşalt?')){cart = []; saveCart(); renderCart();}})
+    document.getElementById('checkout').addEventListener('click', ()=>{ if(cart.length===0){alert('Sepet boş!')}else{ alert('Satış tamamlandı — gerçek ödeme entegrasyonu yok.'); cart = []; saveCart(); renderCart(); } })
+
+    let products = loadProducts();
+    let cart = loadCart();
+
+    addForm.addEventListener('submit', () => {
+      const title = pTitle.value.trim();
+      const price = parseFloat(pPrice.value);
+      const img = pImg.value.trim();
+      if(!title || isNaN(price) || price < 0) return alert('Lütfen geçerli ürün adı ve fiyat girin.');
+      const newP = { id: genId(), title, price: round(price,2), img: img || 'https://picsum.photos/seed/'+Math.random().toString(36).slice(2,8)+'/800/600' };
+      products.push(newP);
+      saveProducts();
+      renderProducts();
+      pTitle.value = '';
+      pPrice.value = '';
+      pImg.value = '';
+    });
+
+    searchEl.addEventListener('input', renderProducts);
+    sortEl.addEventListener('change', renderProducts);
+
+    function genId(){ return 'p_'+Math.random().toString(36).slice(2,9); }
+    function round(v,n){return Math.round(v*(10**n))/(10**n)}
+
+    function saveProducts(){ localStorage.setItem(KEY_PRODUCTS, JSON.stringify(products)); }
+    function loadProducts(){
+      const raw = localStorage.getItem(KEY_PRODUCTS);
+      if(raw) try{ return JSON.parse(raw); }catch(e){}
+      localStorage.setItem(KEY_PRODUCTS, JSON.stringify(sampleProducts));
+      return sampleProducts.slice();
+    }
+
+    function saveCart(){ localStorage.setItem(KEY_CART, JSON.stringify(cart)); }
+    function loadCart(){
+      const raw = localStorage.getItem(KEY_CART);
+      if(raw) try{ return JSON.parse(raw); }catch(e){}
+      return [];
+    }
+
+    function findProduct(id){ return products.find(p=>p.id===id); }
+
+    function renderProducts(){
+      const q = searchEl.value.trim().toLowerCase();
+      let list = products.filter(p => p.title.toLowerCase().includes(q));
+      const sort = sortEl.value;
+      if(sort === 'price-asc') list.sort((a,b)=>a.price-b.price);
+      if(sort === 'price-desc') list.sort((a,b)=>b.price-a.price);
+      if(sort === 'name-asc') list.sort((a,b)=>a.title.localeCompare(b.title));
+      if(sort === 'name-desc') list.sort((a,b)=>b.title.localeCompare(a.title)).reverse();
+
+      productsEl.innerHTML = '';
+      if(list.length===0){ productsEl.innerHTML = '<div class="empty card">Ürün bulunamadı.</div>'; return }
+
+      list.forEach(p => {
+        const div = document.createElement('div'); div.className = 'product';
+        div.innerHTML = `
+          <div class="imgwrap"><img loading="lazy" src="${escapeHtml(p.img)}" alt="${escapeHtml(p.title)}"></div>
+          <div class="body">
+            <div class="title">${escapeHtml(p.title)}</div>
+            <div class="price">₺${p.price.toFixed(2)}</div>
+            <div class="muted">ID: ${p.id}</div>
+            <div class="actions">
+              <button class="btn add" data-id="${p.id}">Sepete Ekle</button>
+              <button class="btn edit" data-id="${p.id}">Düzenle</button>
+              <button class="btn delete" data-id="${p.id}">Sil</button>
+            </div>
+          </div>
+        `;
+        productsEl.appendChild(div);
+      });
+
+      productsEl.querySelectorAll('.btn.add').forEach(b=>b.onclick = ()=>{ addToCart(b.dataset.id); });
+      productsEl.querySelectorAll('.btn.edit').forEach(b=>b.onclick = ()=>{ editProduct(b.dataset.id); });
+      productsEl.querySelectorAll('.btn.delete').forEach(b=>b.onclick = ()=>{ deleteProduct(b.dataset.id); });
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])); }
+
+    function addToCart(id){
+      const p = findProduct(id); if(!p) return alert('Ürün bulunamadı');
+      const existing = cart.find(i=>i.id===id);
+      if(existing) existing.qty += 1; else cart.push({ id: id, qty: 1, price: p.price, title: p.title, img: p.img });
+      saveCart(); renderCart();
+    }
+
+    function editProduct(id){
+      const p = findProduct(id); if(!p) return;
+      const newTitle = prompt('Yeni ürün adı:', p.title); if(newTitle===null) return;
+      const newPriceRaw = prompt('Yeni fiyat (₺):', p.price); if(newPriceRaw===null) return;
+      const newImg = prompt('Yeni görsel URL (boş bırak = değiştirilemez):', p.img || '');
+      const newPrice = parseFloat(newPriceRaw);
+      if(!newTitle.trim() || isNaN(newPrice) || newPrice<0) return alert('Geçersiz değer');
+      p.title = newTitle.trim(); p.price = round(newPrice,2); if(newImg!==null && newImg.trim()!=='') p.img = newImg.trim();
+      saveProducts(); renderProducts(); renderCart();
+    }
+
+    function deleteProduct(id){
+      if(!confirm('Ürünü silmek istediğine emin misin?')) return;
+      products = products.filter(p=>p.id!==id);
+      cart = cart.filter(i=>i.id!==id);
+      saveProducts(); saveCart(); renderProducts(); renderCart();
+    }
+
+    function renderCart(){
+      cartListEl.innerHTML = '';
+      if(cart.length===0){ cartListEl.innerHTML = '<div class="empty">Sepetiniz boş</div>'; totalPriceEl.textContent = '₺0.00'; itemsCountEl.textContent = '0 ürün'; return }
+      let total = 0; let items = 0;
+      cart.forEach(item=>{
+        const p = findProduct(item.id) || { title: item.title, price: item.price, img: item.img };
+        const row = document.createElement('div'); row.className='cart-item';
+        row.innerHTML = `
+          <img src="${escapeHtml(p.img)}" alt="${escapeHtml(p.title)}">
+          <div class="cart-meta">
+            <div style="font-weight:700">${escapeHtml(p.title)}</div>
+            <div class="muted">₺${(p.price).toFixed(2)} x ${item.qty} = ₺${(p.price*item.qty).toFixed(2)}</div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <div class="qty">
+              <button class="btn" data-action="dec" data-id="${item.id}">-</button>
+              <div style="min-width:26px;text-align:center">${item.qty}</div>
+              <button class="btn" data-action="inc" data-id="${item.id}">+</button>
+            </div>
+            <button class="btn delete" data-action="remove" data-id="${item.id}">×</button>
+          </div>
+        `;
+        cartListEl.appendChild(row);
+        total += p.price * item.qty; items += item.qty;
+      });
+
+      totalPriceEl.textContent = '₺' + total.toFixed(2);
+      itemsCountEl.textContent = items + (items===1? ' ürün' : ' ürün');
+
+      cartListEl.querySelectorAll('button[data-action]').forEach(b=>{
+        const act = b.dataset.action; const id = b.dataset.id;
+        b.onclick = ()=>{
+          if(act==='inc'){ const it = cart.find(c=>c.id===id); it.qty++; saveCart(); renderCart(); }
+          if(act==='dec'){ const it = cart.find(c=>c.id===id); if(!it) return; it.qty--; if(it.qty<=0) cart = cart.filter(c=>c.id!==id); saveCart(); renderCart(); }
+          if(act==='remove'){ cart = cart.filter(c=>c.id!==id); saveCart(); renderCart(); }
+        }
+      });
+    }
+
+    renderProducts(); renderCart();
+
+    (function ensureSaved(){ if(!localStorage.getItem(KEY_PRODUCTS)) saveProducts(); })();
+
+    window.__APP = { products, cart, addToCart };
+  </script>
+</body>
+</html>
