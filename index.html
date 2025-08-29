@@ -4,19 +4,26 @@
 <meta charset="UTF-8">
 <title>Gamzelim71 Ürünler</title>
 <style>
-body { font-family: Arial; background: #f8f8f8; margin:0; padding:20px;}
-h1 { text-align:center; }
-.product { border:1px solid #ccc; padding:10px; margin:10px; background:white; display:inline-block; width:220px; vertical-align:top; text-align:center;}
+body { font-family: Arial; margin:0; padding:20px; background: linear-gradient(120deg, #ffe0f0, #ffb6c1); }
+h1 { text-align:center; color:#8B008B; }
+.product, .cart-item { border:1px solid #ccc; padding:10px; margin:10px; background:white; border-radius:10px; }
 .product img { width:200px; height:150px; object-fit:cover; }
-button { background:#28a745; color:white; border:none; padding:10px; cursor:pointer; margin-top:5px;}
-button:hover { background:#218838; }
-form { max-width:400px; margin:20px auto; background:white; padding:20px; border-radius:10px;}
-form input, form textarea { width:100%; padding:10px; margin:5px 0; }
+button { background:#FF69B4; color:white; border:none; padding:8px 12px; cursor:pointer; margin-top:5px; border-radius:5px; }
+button:hover { background:#FF1493; }
+form { max-width:500px; margin:20px auto; background:white; padding:20px; border-radius:15px;}
+form input, form textarea, form select { width:100%; padding:10px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+#cart { margin-top:20px; background:white; padding:10px; border-radius:10px; }
+.cart-item { display:flex; justify-content:space-between; align-items:center; }
+.cart-item p { margin:0; }
 </style>
 </head>
 <body>
 <h1>Gamzelim71 Ürünler</h1>
+
 <div id="products"></div>
+
+<h2>Sepet</h2>
+<div id="cart"></div>
 
 <h2>Sipariş Formu</h2>
 <form id="orderForm">
@@ -28,24 +35,26 @@ form input, form textarea { width:100%; padding:10px; margin:5px 0; }
 </form>
 
 <script>
-// 👇 Sadece senin değiştirebileceğin ürün listesi
+// Ürün listesi
 const products = [
   {title: 'Araç İçi Şemsiyeli Güneşlik', price: 250, img: 'images/product1.jpg'},
   {title: 'AMAZING Genel Temizlik', price: 75, img: 'images/product2.jpg'},
   {title: 'AMAZING Cam Sil', price: 60, img: 'images/product3.jpg'}
 ];
 
-const cart = [];
+let cart = [];
 const productsDiv = document.getElementById('products');
+const cartDiv = document.getElementById('cart');
 
-// Ürünleri listele
-products.forEach((p, index) => {
+// Ürünleri göster
+products.forEach((p,index)=>{
   const div = document.createElement('div');
-  div.className = 'product';
-  div.innerHTML = `
+  div.className='product';
+  div.innerHTML=`
     <img src="${p.img}" alt="${p.title}">
     <h3>${p.title}</h3>
     <p>Fiyat: ₺${p.price}</p>
+    <input type="number" id="qty${index}" min="1" value="1">
     <button onclick="addToCart(${index})">Sepete Ekle</button>
   `;
   productsDiv.appendChild(div);
@@ -53,33 +62,63 @@ products.forEach((p, index) => {
 
 // Sepete ekle
 function addToCart(index){
-  cart.push(products[index]);
-  alert(products[index].title + ' sepete eklendi!');
+  const qty = parseInt(document.getElementById('qty'+index).value);
+  if(qty<1){ alert('Lütfen geçerli adet girin'); return; }
+  const existing = cart.find(c => c.title===products[index].title);
+  if(existing){
+    existing.qty += qty;
+  } else {
+    cart.push({...products[index], qty: qty});
+  }
+  renderCart();
+}
+
+// Sepeti göster
+function renderCart(){
+  cartDiv.innerHTML = '';
+  if(cart.length===0){ cartDiv.innerHTML='<p>Sepet boş</p>'; return; }
+  cart.forEach((item,i)=>{
+    const div=document.createElement('div');
+    div.className='cart-item';
+    div.innerHTML=`
+      <p>${item.title} x ${item.qty} - ₺${item.price*item.qty}</p>
+      <button onclick="removeItem(${i})">Sil</button>
+    `;
+    cartDiv.appendChild(div);
+  });
+}
+
+// Sepetten ürün çıkar
+function removeItem(i){
+  cart.splice(i,1);
+  renderCart();
 }
 
 // Sipariş oluştur
-document.getElementById('orderForm').addEventListener('submit', function(e){
+document.getElementById('orderForm').addEventListener('submit',function(e){
   e.preventDefault();
+  if(cart.length===0){ alert('Sepet boş!'); return; }
+
   const name = document.getElementById('name').value;
   const surname = document.getElementById('surname').value;
   const phone = document.getElementById('phone').value;
   const address = document.getElementById('address').value;
-  if(cart.length===0){ alert('Sepet boş!'); return; }
 
-  let message = `Yeni Sipariş:\nAd: ${name}\nSoyad: ${surname}\nTelefon: ${phone}\nAdres: ${address}\nÜrünler:\n`;
-  cart.forEach((p, i)=>{ message += `${i+1}. ${p.title} - ₺${p.price}\n`; });
+  let message=`Yeni Sipariş:\nAd: ${name}\nSoyad: ${surname}\nTelefon: ${phone}\nAdres: ${address}\nÜrünler:\n`;
+  cart.forEach((item,i)=>{ message += `${i+1}. ${item.title} x ${item.qty} - ₺${item.price*item.qty}\n`; });
 
   // WhatsApp link
-  const whatsappNumber = '905439542028'; // kendi numaranı yaz
-  const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-  window.open(waLink, '_blank');
+  const whatsappNumber='905xxxxxxxxx'; // kendi numaran
+  const waLink=`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+  window.open(waLink,'_blank');
 
   // Gmail link (isteğe bağlı)
-  // const email = 'seninemail@gmail.com';
-  // const mailto = `mailto:${email}?subject=Yeni Sipariş&body=${encodeURIComponent(message)}`;
-  // window.open(mailto, '_blank');
+  // const email='seninemail@gmail.com';
+  // const mailto=`mailto:${email}?subject=Yeni Sipariş&body=${encodeURIComponent(message)}`;
+  // window.open(mailto,'_blank');
 
   alert('Siparişiniz WhatsApp ile gönderilecek!');
+  cart=[]; renderCart();
 });
 </script>
 </body>
